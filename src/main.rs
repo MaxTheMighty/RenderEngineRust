@@ -7,32 +7,62 @@ use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
-use cgmath::{InnerSpace, Vector2, Vector3};
+use cgmath::{InnerSpace, Vector3};
+use cgmath::num_traits::Euclid;
 use winit::event::VirtualKeyCode::V;
+use crate::LightType::{Ambient, Directional};
 
+enum LightType{
+    Ambient,
+    Directional,
+    Point
+}
+#[derive(Copy, Clone)]
 struct Sphere{
     r: f64,
     origin: Vector3<f64>,
     color: Color
 }
 
-const CANVAS_WIDTH: u32 = 1680;
-const CANVAS_HEIGHT: u32 = 1050;
+struct Light {
+    kind: LightType,
+    pos_or_direction: Vector3<f64>,
+    intensity: f64
+}
+
+
+
+const CANVAS_WIDTH: u32 = 1200;
+const CANVAS_HEIGHT: u32 = 1200;
 
 const CANVAS_WIDTH_I: i32 = CANVAS_WIDTH as i32;
 const CANVAS_HEIGHT_I: i32 = CANVAS_HEIGHT as i32;
 
-const VIEWPORT_WIDTH: i32 = 1680;
-const VIEWPORT_HEIGHT: i32 = 1050;
+const VIEWPORT_WIDTH: i32 = 1;
+const VIEWPORT_HEIGHT: i32 = 1;
 
 
 
 const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 
-const SPHERES: [Sphere;1] = [
-   // Sphere{r:20.0,origin:Vector3{x:-5.0,y:-1.0,z:1.0},color:Color::RED},
-   // Sphere{r:20.0,origin:Vector3{x:40.0,y:0.0,z:2.0},color:Color::BLUE},
-    Sphere{r:100.0,origin:Vector3{x:-100.0,y:-50.0,z:20.0},color:Color::GREEN}
+const SPHERES: [Sphere;11] = [
+   Sphere{r:1.0,origin:Vector3{x:0.0,y:0.5,z:6.0},color:Color::RED},
+   Sphere{r:1.0,origin:Vector3{x:-1.0,y:0.9,z:3.0},color:Color::BLUE},
+    Sphere{r:1.0,origin:Vector3{x:1.0,y:-1.0,z:4.0},color:Color::GREEN},
+    Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0}},
+    Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0}},
+    Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0}},
+    Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0}},
+    Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0}},
+    Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.0},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
+    Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
+    Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0}},
+];
+
+const LIGHTS: [Light;3] = [
+    Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.1},
+    Light{kind:LightType::Point,pos_or_direction:Vector3{x:1.0,y:1.5,z:2.0},intensity:0.9},
+    Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-1.0,y:0.0,z:4.0},intensity:0.0}
 ];
 fn main() -> Result<(), Error>  {
     env_logger::init();
@@ -104,26 +134,39 @@ fn render_to_my_buffer(my_buffer: &mut Vec<Color>, viewport_distance: f64) {
 
 fn copy_to_pixels(my_buffer: &Vec<Color>, pixels_buffer: &mut [u8]){
     for (index, pixel) in pixels_buffer.chunks_exact_mut(4).enumerate() {
-        pixel[0] = (my_buffer[index].r as u8 * 255);
-        pixel[1] = (my_buffer[index].g as u8 * 255);
-        pixel[2] = (my_buffer[index].b as u8 * 255);
-        pixel[3] = (my_buffer[index].a as u8 * 255);
+        pixel[0] = (my_buffer[index].r * 255.0) as u8;
+        pixel[1] = (my_buffer[index].g * 255.0) as u8;
+        pixel[2] = (my_buffer[index].b * 255.0) as u8;
+        pixel[3] = (my_buffer[index].a * 255.0) as u8;
     }
 }
 
-// fn do_drawing(my_buffer: &Vec<(u8, u8, u8, u8)>){
-//     println!("do_drawing called");
-//     for x in -CANVAS_WIDTH_I/2..CANVAS_WIDTH_I/2 {
-//         for y in -CANVAS_HEIGHT_I/2..CANVAS_HEIGHT_I/2 {
-//             let d = convert_from_canvas_to_viewport(x,y);
-//             let color = trace_ray(CAMERA_POSITION, d, 1.0, f64::INFINITY);//trace ray from (d.x,d.y,d.z)
-//
-//             // draw_point(x,y,color,pixels_buffer,my_buffer);
-//             //draw color on canvas at points x and y
-//         }
-//     }
-//     // draw_point(buffer)
-// }
+fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>) -> f64 {
+    //
+    let mut intensity: f64 = 0.0;
+    let mut top_factor: f64;
+    let mut light_vector: Vector3<f64>;
+    for light in LIGHTS{
+        match light.kind {
+            LightType::Directional =>{
+                light_vector = light.pos_or_direction;
+            }
+            LightType::Point => {
+                light_vector = light.pos_or_direction - point; // do something here
+            }
+            LightType::Ambient=> {
+                intensity += light.intensity;
+                continue;
+            }
+        }
+        top_factor = normal.dot(light_vector);
+        if(top_factor < 0.0){
+            continue;
+        }
+        intensity = intensity + ((light.intensity * top_factor) / (normal.magnitude() * light_vector.magnitude()));
+    }
+    return intensity;
+}
 
 fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, point_min: f64, point_max: f64) -> Color{
     //find out where the ray is going
@@ -134,21 +177,33 @@ fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, point_min: f
     //we just want front
     // println!("trace ray called");
     let mut closest_solution: f64 = f64::INFINITY;
-    let mut closest_color: Color = Color::WHITE;
+    let mut closest_sphere: Option<Sphere> = None;
     let mut intersections: (f64,f64);
+    let mut point: Vector3<f64>;
+    let mut sphere_normal: Vector3<f64>;
+    let intensity: f64;
     for sphere in SPHERES{
         intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
         if(intersections.0 < closest_solution && intersections.0 > point_min && intersections.0 < point_max){
             closest_solution = intersections.0;
-            closest_color = sphere.color;
+            closest_sphere = Some(sphere);
         }
         if(intersections.1 < closest_solution && intersections.1 > point_min && intersections.1 < point_max){
             closest_solution = intersections.1;
-            closest_color = sphere.color;
+            closest_sphere = Some(sphere);
+        }
+    }
+    match closest_sphere{
+        None => Color::WHITE,
+        Some(sphere) => {
+            point = ray_origin + (closest_solution * ray_direction);
+            sphere_normal = point - sphere.origin;
+            sphere_normal = sphere_normal.normalize();
+            intensity = intensity_at_point(point,sphere_normal);
+            return Color{r:sphere.color.r*intensity,g:sphere.color.g*intensity,b:sphere.color.b*intensity,a:1.0};
         }
     }
 
-    return closest_color;
 
     // return Vector3::new(1,2,3);
 
@@ -161,30 +216,18 @@ fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direct
     let b = 2.0 * co.dot(ray_direction);
     let c = (co.dot(co) - (sphere.r * sphere.r));
     let discriminant = (b * b - (4.0 * a * c));
+    if(discriminant == 0.0){
+        return (((-b - (discriminant).sqrt()) / 2.0*a), f64::INFINITY);
+    }
     if discriminant < 0.0 {
         return (f64::INFINITY, f64::INFINITY);
     }
 
-    return ((-b + (discriminant).sqrt()) / (2.0*a), (-b - (discriminant).sqrt()) / (2.0*a));
-/*
-IntersectRaySphere(O, D, sphere) {
-    r = sphere.radius
-    CO = O - sphere.center
+    let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
+    let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
 
-    a = dot(D, D)
-    b = 2*dot(CO, D)
-    c = dot(CO, CO) - r*r
+    return (t1, t2);
 
-    discriminant = b*b - 4*a*c
-    if discriminant < 0 {
-        return inf, inf
-    }
-
-    t1 = (-b + sqrt(discriminant)) / (2*a)
-    t2 = (-b - sqrt(discriminant)) / (2*a)
-    return t1, t2
-}
- */
 
 }
 
@@ -197,17 +240,7 @@ fn draw_point(x: i32, y: i32, color: Color, my_buffer: &mut Vec<(Color)>) {
         // return;
     // }
     my_buffer[index] = color;
-    // for (index, pixel) in pixels_buffer.chunks_exact_mut(4).enumerate() {
-    //     pixel[0] = my_buffer[index].0;
-    //     pixel[1] = my_buffer[index].1;
-    //     pixel[2] = my_buffer[index].2;
-    //     pixel[3] = my_buffer[index].3;
-    //
-    // }
-    // buffer[index] = color.r as u8 * 255;
-    // buffer[index + 1] = color.g as u8 * 255;
-    // buffer[index + 2] = color.b as u8 * 255;
-    // buffer[index + 3] = 255;
+
 }
 
 fn convert_from_screen_to_raster(x: i32, y: i32) -> (u32, u32) {
@@ -215,8 +248,8 @@ fn convert_from_screen_to_raster(x: i32, y: i32) -> (u32, u32) {
 }
 
 fn convert_from_canvas_to_viewport(x: i32, y: i32, viewport_distance: f64) -> Vector3<f64>{
-    let x_out = x * (VIEWPORT_WIDTH as f64 /CANVAS_WIDTH_I as f64) as i32;
-    let y_out = y * (VIEWPORT_HEIGHT as f64 /CANVAS_HEIGHT_I as f64) as i32;
+    let x_out = x as f64 * (VIEWPORT_WIDTH as f64 /CANVAS_WIDTH_I as f64);
+    let y_out = y as f64 * (VIEWPORT_HEIGHT as f64 /CANVAS_HEIGHT_I as f64);
     let z_out = viewport_distance;
 
     return Vector3::new(x_out as f64, y_out as f64, z_out);
