@@ -2,7 +2,7 @@ use std::cmp::PartialEq;
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use pixels::wgpu::Color;
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
@@ -77,19 +77,19 @@ const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 //     Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-1.0,y:0.0,z:4.0},intensity:0.0}
 // ];
 
-const SPHERES: [Sphere;3] = [
+const SPHERES: [Sphere;12] = [
    Sphere{r:1.0,origin:Vector3{x:0.0,y:0.5,z:6.0},color:Color::RED},
    Sphere{r:1.0,origin:Vector3{x:-1.0,y:0.9,z:3.0},color:Color::BLUE},
     Sphere{r:1.0,origin:Vector3{x:1.0,y:-1.0,z:4.0},color:Color::GREEN},
-    // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0}},
-    // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0}},
-    // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0}},
-    // Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0}},
-    // Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0}},
-    // Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
-    // Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
-    // Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0}},
-    // Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0}},
+    Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0}},
+    Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0}},
+    Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0}},
+    Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0}},
+    Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0}},
+    Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
+    Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
+    Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0}},
+    Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0}},
 ];
 
 // const SPHERES: [Sphere;4] = [
@@ -126,10 +126,11 @@ fn main() -> Result<(), Error>  {
     ];
     let window = {
         let size = LogicalSize::new(CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
+        let position = LogicalPosition::new(300.0, 300.0);
         WindowBuilder::new()
             .with_title("Hello Pixels")
             .with_inner_size(size)
-            // .with_position()
+            .with_position(position)
             .with_min_inner_size(size)
             .build(&event_loop)
             .unwrap()
@@ -149,21 +150,21 @@ fn main() -> Result<(), Error>  {
             render_to_my_buffer(&mut my_buffer,&lights, viewport_distance);
 
             copy_to_pixels(&my_buffer,pixels.frame_mut());
-            // update_light_position(&mut lights, &mut direction);
-            match input.mouse(){
-                Some(mouse) => {
-                    mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
-                    // draw_point(mouse_pos.0, mouse_pos.1, Color::RED, &mut my_buffer);
-                    lights[1].pos_or_direction = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-                    lights[1].pos_or_direction.z = light_z;
-                    // lights[1].pos_or_direction.z = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-                }
+            update_light_position(&mut lights, &mut direction);
+            // match input.mouse(){
+            //     Some(mouse) => {
+            //         mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
+            //         // draw_point(mouse_pos.0, mouse_pos.1, Color::RED, &mut my_buffer);
+            //         lights[1].pos_or_direction = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
+            //         lights[1].pos_or_direction.z = light_z;
+            //         // lights[1].pos_or_direction.z = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
+            //     }
+            //
+            //     None => {}
+            // }
 
-                None => {}
-            }
 
-
-            light_z += input.scroll_diff() as f64;
+            // light_z += input.scroll_diff() as f64;
 
         }
 
