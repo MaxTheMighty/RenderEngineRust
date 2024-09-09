@@ -1,8 +1,8 @@
 use std::cmp::PartialEq;
+use std::ops::{Mul, Neg};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
-use pixels::wgpu::Color;
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
@@ -52,10 +52,24 @@ struct Light {
     intensity: f64
 }
 
+#[derive(Copy,Clone,PartialEq,Debug)]
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8
+}
 
+const RED: Color = Color{r: 255, g: 0, b: 0, a: 255};
+const BLUE: Color = Color{r: 0, g: 0, b: 255, a: 255};
+const GREEN: Color = Color{r: 0, g: 255, b: 0, a: 255};
 
-const CANVAS_WIDTH: u32 = 1200;
-const CANVAS_HEIGHT: u32 = 1200;
+const BLACK: Color = Color{r: 0, g: 0, b: 0, a: 255};
+
+const WHITE: Color = Color{r: 255, g: 255, b: 255, a: 255};
+
+const CANVAS_WIDTH: u32 = 600;
+const CANVAS_HEIGHT: u32 = 600;
 
 const CANVAS_WIDTH_I: i32 = CANVAS_WIDTH as i32;
 const CANVAS_HEIGHT_I: i32 = CANVAS_HEIGHT as i32;
@@ -77,34 +91,20 @@ const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 // ];
 
 const SPHERES: [Sphere;3] = [
-   Sphere{r:1.0,origin:Vector3{x:0.0,y:0.5,z:6.0,},color:Color::RED,specular_reflection:500.0},
-   Sphere{r:1.0,origin:Vector3{x:-1.0,y:0.9,z:3.0},color:Color::BLUE,specular_reflection:0.5},
-    Sphere{r:1.0,origin:Vector3{x:1.0,y:-1.0,z:4.0},color:Color::GREEN,specular_reflection:0.5},
-    // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0},specular_reflection:0.5},
-    // Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0},specular_reflection:0.5},
-    // Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0}},
+    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RED,specular_reflection:4000.0},
+    Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:BLUE,specular_reflection:2.0},
+    Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:GREEN,specular_reflection:-1.0},
+    // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0},specular_reflection:10.0},
+    // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0},specular_reflection:10.0},
+    // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0},specular_reflection:15.0},
+    // Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0},specular_reflection:7.0},
+    // Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0},specular_reflection:120.0},
+    // Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:200.0},
+    // Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:10.0},
+    // Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0},specular_reflection:-1.0},
+    // Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0},specular_reflection:-1.0},
 ];
 
-// const SPHERES: [Sphere;4] = [
-//     Sphere{r:1.0,origin:Vector3{x:0.0,y:0.5,z:3.0},color:Color::RED},
-//     Sphere{r:1.0,origin:Vector3{x:-1.0,y:0.9,z:3.0},color:Color::BLUE},
-//     Sphere{r:1.0,origin:Vector3{x:1.0,y:-1.0,z:3.0},color:Color::GREEN},
-//     Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:3.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0}},
-//     // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0}},
-//     // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0}},
-//     // Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0}},
-//     // Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0}},
-//     // Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
-//     // Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0}},
-//     // Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0}},
-//     // Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0}},
-// ];
 
 
 fn main() -> Result<(), Error>  {
@@ -114,21 +114,23 @@ fn main() -> Result<(), Error>  {
     let mut my_buffer: Vec<Color> = Vec::new();
     let mut viewport_distance: f64 = 1.0;
     // let mut window_pos: (i32,i32) = (0,0);
-    my_buffer.resize((((CANVAS_HEIGHT + 1) * (CANVAS_WIDTH + 1))) as usize, Color::BLACK);
+    my_buffer.resize((((CANVAS_HEIGHT + 1) * (CANVAS_WIDTH + 1))) as usize, BLACK);
     let mut direction: Direction = Direction::In;
     let mut mouse_pos: (i32, i32) = (0,0);
     let mut light_z: f64 = 0.0;
     let mut lights: Vec<Light> = vec![
-    Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.00},
-    Light{kind:LightType::Point,pos_or_direction:Vector3{x:-4.0,y:-4.0,z:4.0},intensity:0.95},
-    Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-1.0,y:0.0,z:4.0},intensity:0.05}
+    Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.10},
+    Light{kind:LightType::Point,pos_or_direction:Vector3{x:-4.0,y:-4.0,z:4.0},intensity:0.20},
+    Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-4.0,y:-5.0,z:1.0},intensity:0.20},
+    Light{kind:LightType::Point,pos_or_direction:Vector3{x:0.0,y:10.0,z:5.5},intensity:0.50},
     ];
     let window = {
         let size = LogicalSize::new(CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
+        let window_pos = LogicalPosition::new(0.0,0.0);
         WindowBuilder::new()
             .with_title("Hello Pixels")
             .with_inner_size(size)
-            // .with_position()
+            .with_position(window_pos)
             .with_min_inner_size(size)
             .build(&event_loop)
             .unwrap()
@@ -149,20 +151,21 @@ fn main() -> Result<(), Error>  {
 
             copy_to_pixels(&my_buffer,pixels.frame_mut());
             // update_light_position(&mut lights, &mut direction);
-            match input.mouse(){
-                Some(mouse) => {
-                    mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
-                    // draw_point(mouse_pos.0, mouse_pos.1, Color::RED, &mut my_buffer);
-                    lights[1].pos_or_direction = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-                    lights[1].pos_or_direction.z = light_z;
-                    // lights[1].pos_or_direction.z = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-                }
-
-                None => {}
-            }
-
-
-            light_z += input.scroll_diff() as f64;
+            update_single_light_position(&mut lights[1], &mut direction);
+            // match input.mouse(){
+            //     Some(mouse) => {
+            //         mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
+            //         // draw_point(mouse_pos.0, mouse_pos.1, Color::RED, &mut my_buffer);
+            //         lights[1].pos_or_direction = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
+            //         lights[1].pos_or_direction.z = light_z;
+            //         // lights[1].pos_or_direction.z = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
+            //     }
+            //
+            //     None => {}
+            // }
+            //
+            //
+            // light_z += input.scroll_diff() as f64;
 
         }
 
@@ -173,9 +176,9 @@ fn main() -> Result<(), Error>  {
                 return;
             }
 
-            if input.key_pressed(VirtualKeyCode::Up){
-                viewport_distance+=1.0;
-            }
+            // if input.key_pressed(VirtualKeyCode::Up){
+            //     viewport_distance+=1.0;
+            // }
 
 
 
@@ -192,6 +195,52 @@ fn main() -> Result<(), Error>  {
     });
 }
 
+fn update_single_light_position(light: &mut Light, direction: &mut Direction) {
+    let bound: f64 = 2.5;
+    let step: f64 = 0.5;
+    match direction{
+        Direction::Up => {
+            light.pos_or_direction.y-=step;
+            if(light.pos_or_direction.y < -bound){
+                *direction = rotate_direction(&direction); //is this allowed?
+            }
+        }
+        Direction::Down => {
+            light.pos_or_direction.y+=step;
+            if(light.pos_or_direction.y > bound){
+                *direction = rotate_direction(&direction); //is this allowed?
+            }
+        }
+        Direction::Left => {
+            light.pos_or_direction.x-=step;
+            if(light.pos_or_direction.x < -bound){
+                *direction = rotate_direction(&direction); //is this allowed?
+            }
+        }
+        Direction::Right => {
+            light.pos_or_direction.x+=step;
+            if(light.pos_or_direction.x > bound){
+                *direction = rotate_direction(&direction); //is this allowed?
+            }
+        }
+
+        Direction::In => {
+            light.pos_or_direction.z+=step;
+            if(light.pos_or_direction.z > bound){
+                *direction = rotate_direction(&direction);
+            }
+        }
+
+        Direction::Out => {
+            light.pos_or_direction.z-=step;
+            if(light.pos_or_direction.z < -bound){
+                *direction = rotate_direction(&direction);
+            }
+        }
+        _ => {}
+    }
+
+}
 
 fn update_light_position(lights: &mut Vec<Light>, direction: &mut Direction) {
     let bound: f64 = 2.5;
@@ -262,14 +311,61 @@ fn render_to_my_buffer(my_buffer: &mut Vec<Color>, lights: &Vec<Light>, viewport
 
 fn copy_to_pixels(my_buffer: &Vec<Color>, pixels_buffer: &mut [u8]){
     for (index, pixel) in pixels_buffer.chunks_exact_mut(4).enumerate() {
-        pixel[0] = (my_buffer[index].r * 255.0) as u8;
-        pixel[1] = (my_buffer[index].g * 255.0) as u8;
-        pixel[2] = (my_buffer[index].b * 255.0) as u8;
-        pixel[3] = (my_buffer[index].a * 255.0) as u8;
+        pixel[0] = (my_buffer[index].r);
+        pixel[1] = (my_buffer[index].g);
+        pixel[2] = (my_buffer[index].b);
+        pixel[3] = (my_buffer[index].a);
     }
 }
 
-fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>, lights: &Vec<Light>, sphere: &Sphere, ray_origin: &Vector3<f64>) -> f64 {
+fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec<Light>, point_min: f64, point_max: f64) -> Color{
+    //find out where the ray is going
+    //and if it interescts with a sphere,
+    //return the points along the ray where it interesects
+    //because the straight line is going through the sphere, it interesects it twice
+    //front and back
+    //we just want front
+    // println!("trace ray called");
+    let mut closest_solution: f64 = f64::INFINITY;
+    let mut closest_sphere: Option<Sphere> = None;
+    let mut closest_color = WHITE;
+    let mut intersections: (f64,f64);
+    let mut point: Vector3<f64>;
+    let mut sphere_normal: Vector3<f64>;
+    let mut intensity: f64;
+    for sphere in SPHERES{
+        intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
+        if(intersections.0 < closest_solution && intersections.0 > point_min && intersections.0 < point_max){
+            closest_solution = intersections.0;
+            closest_sphere = Some(sphere);
+            closest_color = sphere.color;
+        }
+        if(intersections.1 < closest_solution && intersections.1 > point_min && intersections.1 < point_max){
+            closest_solution = intersections.1;
+            closest_sphere = Some(sphere);
+            closest_color = sphere.color;
+        }
+    }
+    match closest_sphere{
+        None => WHITE,
+        Some(sphere) => {
+            point = ray_origin + (closest_solution * ray_direction);
+            sphere_normal = point - sphere.origin;
+            sphere_normal = sphere_normal.normalize();
+            intensity = intensity_at_point(point, sphere_normal, lights, &sphere, &ray_direction);
+            adjust_color(&mut closest_color,intensity);
+            return closest_color;
+
+        }
+    }
+
+
+    // return Vector3::new(1,2,3);
+
+}
+
+
+fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>, lights: &Vec<Light>, sphere: &Sphere, ray_direction: &Vector3<f64>) -> f64 {
     //
     let mut intensity: f64 = 0.0;
     let mut top_factor: f64;
@@ -292,67 +388,35 @@ fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>, lights: &Vec<L
             continue;
         }
         intensity = intensity + ((light.intensity * top_factor) / (normal.magnitude() * light_vector.magnitude())); //get light from defined lights
-        // intensity = intensity + get_reflection_for_object(&sphere, &normal, &ray_origin, &light_vector);
+        intensity = intensity + get_reflection_for_object(&sphere, &normal, &ray_direction.neg(), &light_vector);
     }
     return intensity;
 }
 
 fn get_reflection_for_object(sphere: &Sphere, normal: &Vector3<f64>, camera_point_vector: &Vector3<f64>, light_vector: &Vector3<f64>) -> f64 {
-    if(sphere.specular_reflection == -1.0){
-        return 0.0;
+    let mut out: f64 = 0.0;
+    if(sphere.specular_reflection <= -1.0){
+        return out;
     }
 
     let reflection_vector = 2.0 * normal * normal.dot(*light_vector) - light_vector;
+    let R = reflection_vector;
+    let V = camera_point_vector;
+    let s = sphere.specular_reflection;
+
     let reflection_vector_dot_v = reflection_vector.dot(*camera_point_vector);
-    if (reflection_vector_dot_v <= 0.0) {
-        return 0.0;
+    let r_dot_v = reflection_vector_dot_v;
+
+
+    if (r_dot_v > 0.0){
+        out = (r_dot_v/R.magnitude() * V.magnitude()).powf(s);
     }
-    return ((reflection_vector.dot(*camera_point_vector)) / reflection_vector.magnitude() * camera_point_vector.magnitude()).powf(sphere.specular_reflection);
+    // out = ((reflection_vector_dot_v) / reflection_vector.magnitude() * camera_point_vector.magnitude()).powf(sphere.specular_reflection);
+    return out;
     todo!();
 }
 
-fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec<Light>, point_min: f64, point_max: f64) -> Color{
-    //find out where the ray is going
-    //and if it interescts with a sphere,
-    //return the points along the ray where it interesects
-    //because the straight line is going through the sphere, it interesects it twice
-    //front and back
-    //we just want front
-    // println!("trace ray called");
-    let mut closest_solution: f64 = f64::INFINITY;
-    let mut closest_sphere: Option<Sphere> = None;
-    let mut intersections: (f64,f64);
-    let mut point: Vector3<f64>;
-    let mut sphere_normal: Vector3<f64>;
-    let mut intensity: f64;
-    for sphere in SPHERES{
-        intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
-        if(intersections.0 < closest_solution && intersections.0 > point_min && intersections.0 < point_max){
-            closest_solution = intersections.0;
-            closest_sphere = Some(sphere);
-        }
-        if(intersections.1 < closest_solution && intersections.1 > point_min && intersections.1 < point_max){
-            closest_solution = intersections.1;
-            closest_sphere = Some(sphere);
-        }
-    }
-    match closest_sphere{
-        None => Color::WHITE,
-        Some(sphere) => {
-            point = ray_origin + (closest_solution * ray_direction);
-            sphere_normal = point - sphere.origin;
-            sphere_normal = sphere_normal.normalize();
-            intensity = intensity_at_point(point, sphere_normal, lights, &sphere, &ray_origin);
-            intensity = intensity + get_reflection_for_object(&sphere, &sphere_normal, &ray_direction, &sphere_normal);
-            // let color_reflection = get_reflection_for_object(&sphere, &sphere_normal, &ray_direction, &light);
-            return Color{r:sphere.color.r*intensity,g:sphere.color.g*intensity,b:sphere.color.b*intensity,a:1.0}
-        }
-    }
 
-
-    // return Vector3::new(1,2,3);
-
-}
 
 //this function uses geometry to solve for an equation that checks for line sphere intersection
 fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direction: Vector3<f64>) -> (f64,f64) {
@@ -373,6 +437,19 @@ fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direct
 
     return (t1, t2);
 
+
+}
+
+fn adjust_color(color: &mut Color, intensity: f64){
+    // :(
+    // i don't like this either
+    let color_r_f: f64 = color.r as f64 * intensity;
+    let color_g_f: f64 = color.g as f64 * intensity;
+    let color_b_f: f64 = color.b as f64 * intensity;
+    color.r = color_r_f.clamp(0.0, 255.0) as u8;
+    color.g = color_g_f.clamp(0.0, 255.0) as u8;
+    color.b = color_b_f.clamp(0.0, 255.0) as u8;
+    color.a = 255;
 
 }
 
