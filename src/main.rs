@@ -1,6 +1,5 @@
 use std::cmp::PartialEq;
-use std::ops::{Mul, Neg};
-use log::error;
+use std::ops::{Neg};
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::event::{Event, VirtualKeyCode};
@@ -8,7 +7,11 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 use winit_input_helper::WinitInputHelper;
 use cgmath::{InnerSpace, Vector3};
+use RenderEngine::color::Color;
+use RenderEngine::object::{Normal, Object};
+use RenderEngine::sphere::Sphere;
 use crate::LightType::{Ambient, Directional, Point};
+
 
 #[derive(PartialEq)]
 enum LightType{
@@ -38,13 +41,13 @@ fn rotate_direction(direction: &Direction ) -> Direction {
     }
 
 }
-#[derive(Copy, Clone)]
-struct Sphere{
-    r: f64,
-    origin: Vector3<f64>,
-    color: Color,
-    specular_reflection: f64
-}
+// #[derive(Copy, Clone)]
+// struct Sphere{
+//     r: f64,
+//     origin: Vector3<f64>,
+//     color: Color,
+//     specular_reflection: f64
+// }
 
 struct Light {
     kind: LightType,
@@ -52,24 +55,24 @@ struct Light {
     intensity: f64
 }
 
-#[derive(Copy,Clone,PartialEq,Debug)]
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8
-}
+// #[derive(Copy,Clone,PartialEq,Debug)]
+// struct Color {
+//     r: u8,
+//     g: u8,
+//     b: u8,
+//     a: u8
+// }
 
-const RED: Color = Color{r: 255, g: 0, b: 0, a: 255};
-const BLUE: Color = Color{r: 0, g: 0, b: 255, a: 255};
-const GREEN: Color = Color{r: 0, g: 255, b: 0, a: 255};
+// const RED: Color = Color{r: 255, g: 0, b: 0, a: 255};
+// const BLUE: Color = Color{r: 0, g: 0, b: 255, a: 255};
+// const GREEN: Color = Color{r: 0, g: 255, b: 0, a: 255};
+//
+// const BLACK: Color = Color{r: 0, g: 0, b: 0, a: 255};
+//
+// const WHITE: Color = Color{r: 255, g: 255, b: 255, a: 255};
 
-const BLACK: Color = Color{r: 0, g: 0, b: 0, a: 255};
-
-const WHITE: Color = Color{r: 255, g: 255, b: 255, a: 255};
-
-const CANVAS_WIDTH: u32 = 600;
-const CANVAS_HEIGHT: u32 = 600;
+const CANVAS_WIDTH: u32 = 200;
+const CANVAS_HEIGHT: u32 = 200;
 
 const CANVAS_WIDTH_I: i32 = CANVAS_WIDTH as i32;
 const CANVAS_HEIGHT_I: i32 = CANVAS_HEIGHT as i32;
@@ -91,9 +94,9 @@ const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 // ];
 
 const SPHERES: [Sphere;3] = [
-    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RED,specular_reflection:4000.0},
-    Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:BLUE,specular_reflection:2.0},
-    Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:GREEN,specular_reflection:-1.0},
+    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::RED,specular_reflection:4000.0},
+    Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:RenderEngine::color::BLUE,specular_reflection:2.0},
+    Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:RenderEngine::color::GREEN,specular_reflection:-1.0},
     // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0},specular_reflection:10.0},
     // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0},specular_reflection:10.0},
     // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0},specular_reflection:15.0},
@@ -114,7 +117,7 @@ fn main() -> Result<(), Error>  {
     let mut my_buffer: Vec<Color> = Vec::new();
     let mut viewport_distance: f64 = 1.0;
     // let mut window_pos: (i32,i32) = (0,0);
-    my_buffer.resize((((CANVAS_HEIGHT + 1) * (CANVAS_WIDTH + 1))) as usize, BLACK);
+    my_buffer.resize((((CANVAS_HEIGHT + 1) * (CANVAS_WIDTH + 1))) as usize, RenderEngine::color::BLACK);
     let mut direction: Direction = Direction::In;
     let mut mouse_pos: (i32, i32) = (0,0);
     let mut light_z: f64 = 0.0;
@@ -163,9 +166,9 @@ fn main() -> Result<(), Error>  {
             //
             //     None => {}
             // }
-            //
-            //
-            // light_z += input.scroll_diff() as f64;
+
+
+            light_z += input.scroll_diff() as f64;
 
         }
 
@@ -328,13 +331,14 @@ fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec
     // println!("trace ray called");
     let mut closest_solution: f64 = f64::INFINITY;
     let mut closest_sphere: Option<Sphere> = None;
-    let mut closest_color = WHITE;
+    let mut closest_color = RenderEngine::color::WHITE;
     let mut intersections: (f64,f64);
     let mut point: Vector3<f64>;
     let mut sphere_normal: Vector3<f64>;
     let mut intensity: f64;
     for sphere in SPHERES{
-        intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
+        // intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
+        intersections = sphere.ray_intersections(&ray_origin, &ray_direction);
         if(intersections.0 < closest_solution && intersections.0 > point_min && intersections.0 < point_max){
             closest_solution = intersections.0;
             closest_sphere = Some(sphere);
@@ -347,11 +351,10 @@ fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec
         }
     }
     match closest_sphere{
-        None => WHITE,
+        None => RenderEngine::color::WHITE,
         Some(sphere) => {
             point = ray_origin + (closest_solution * ray_direction);
-            sphere_normal = point - sphere.origin;
-            sphere_normal = sphere_normal.normalize();
+            sphere_normal = sphere.normal(&point);
             intensity = intensity_at_point(point, sphere_normal, lights, &sphere, &ray_direction);
             adjust_color(&mut closest_color,intensity);
             return closest_color;
