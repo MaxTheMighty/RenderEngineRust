@@ -41,13 +41,7 @@ fn rotate_direction(direction: &Direction ) -> Direction {
     }
 
 }
-// #[derive(Copy, Clone)]
-// struct Sphere{
-//     r: f64,
-//     origin: Vector3<f64>,
-//     color: Color,
-//     specular_reflection: f64
-// }
+
 
 struct Light {
     kind: LightType,
@@ -55,24 +49,8 @@ struct Light {
     intensity: f64
 }
 
-// #[derive(Copy,Clone,PartialEq,Debug)]
-// struct Color {
-//     r: u8,
-//     g: u8,
-//     b: u8,
-//     a: u8
-// }
-
-// const RED: Color = Color{r: 255, g: 0, b: 0, a: 255};
-// const BLUE: Color = Color{r: 0, g: 0, b: 255, a: 255};
-// const GREEN: Color = Color{r: 0, g: 255, b: 0, a: 255};
-//
-// const BLACK: Color = Color{r: 0, g: 0, b: 0, a: 255};
-//
-// const WHITE: Color = Color{r: 255, g: 255, b: 255, a: 255};
-
-const CANVAS_WIDTH: u32 = 200;
-const CANVAS_HEIGHT: u32 = 200;
+const CANVAS_WIDTH: u32 = 500;
+const CANVAS_HEIGHT: u32 = 500;
 
 const CANVAS_WIDTH_I: i32 = CANVAS_WIDTH as i32;
 const CANVAS_HEIGHT_I: i32 = CANVAS_HEIGHT as i32;
@@ -94,7 +72,7 @@ const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 // ];
 
 const SPHERES: [Sphere;3] = [
-    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::RED,specular_reflection:4000.0},
+    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::PURPLE,specular_reflection:4000.0},
     Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:RenderEngine::color::BLUE,specular_reflection:2.0},
     Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:RenderEngine::color::GREEN,specular_reflection:-1.0},
     // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0},specular_reflection:10.0},
@@ -115,17 +93,21 @@ fn main() -> Result<(), Error>  {
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
     let mut my_buffer: Vec<Color> = Vec::new();
-    let mut viewport_distance: f64 = 1.0;
-    // let mut window_pos: (i32,i32) = (0,0);
+    let viewport_distance: f64 = 1.0;
     my_buffer.resize((((CANVAS_HEIGHT + 1) * (CANVAS_WIDTH + 1))) as usize, RenderEngine::color::BLACK);
     let mut direction: Direction = Direction::In;
     let mut mouse_pos: (i32, i32) = (0,0);
-    let mut light_z: f64 = 0.0;
+    let mut light_z: f64 = 4.0;
     let mut lights: Vec<Light> = vec![
-    Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.10},
-    Light{kind:LightType::Point,pos_or_direction:Vector3{x:-4.0,y:-4.0,z:4.0},intensity:0.20},
-    Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-4.0,y:-5.0,z:1.0},intensity:0.20},
-    Light{kind:LightType::Point,pos_or_direction:Vector3{x:0.0,y:10.0,z:5.5},intensity:0.50},
+        Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.10},
+        Light{kind:LightType::Point,pos_or_direction:Vector3{x:-4.0,y:-4.0,z:4.0},intensity:0.20},
+        Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-4.0,y:-5.0,z:1.0},intensity:0.20},
+        Light{kind:LightType::Point,pos_or_direction:Vector3{x:0.0,y:10.0,z:5.5},intensity:0.50},
+    ];
+    let mut spheres: Vec<Sphere> = vec![
+        Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::RED,specular_reflection:4000.0},
+        Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:RenderEngine::color::BLUE,specular_reflection:2.0},
+        Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:RenderEngine::color::GREEN,specular_reflection:-1.0},
     ];
     let window = {
         let size = LogicalSize::new(CANVAS_WIDTH as f64, CANVAS_HEIGHT as f64);
@@ -150,22 +132,20 @@ fn main() -> Result<(), Error>  {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
             //do some drawing here
-            render_to_my_buffer(&mut my_buffer,&lights, viewport_distance);
+            render_to_my_buffer(&mut my_buffer, &mut spheres, &lights, viewport_distance);
 
             copy_to_pixels(&my_buffer,pixels.frame_mut());
             // update_light_position(&mut lights, &mut direction);
             update_single_light_position(&mut lights[1], &mut direction);
-            // match input.mouse(){
-            //     Some(mouse) => {
-            //         mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
-            //         // draw_point(mouse_pos.0, mouse_pos.1, Color::RED, &mut my_buffer);
-            //         lights[1].pos_or_direction = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-            //         lights[1].pos_or_direction.z = light_z;
-            //         // lights[1].pos_or_direction.z = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
-            //     }
-            //
-            //     None => {}
-            // }
+            match input.mouse(){
+                Some(mouse) => {
+                    mouse_pos = convert_from_window_to_screen((mouse.0/2.0) as i32 ,(mouse.1/2.0) as i32);
+                    spheres[0].origin = convert_from_canvas_to_viewport(mouse_pos.0, mouse_pos.1, viewport_distance);
+                    spheres[0].origin.z = light_z;
+                }
+
+                None => {}
+            }
 
 
             light_z += input.scroll_diff() as f64;
@@ -177,6 +157,19 @@ fn main() -> Result<(), Error>  {
             if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
                 *control_flow = ControlFlow::Exit;
                 return;
+            }
+
+            if input.key_pressed(VirtualKeyCode::Up) || input.key_pressed(VirtualKeyCode::W) {
+                spheres[0].r += 0.5;
+            }
+            if input.key_pressed(VirtualKeyCode::Down) || input.key_pressed(VirtualKeyCode::S) {
+                spheres[0].r -= 0.5;
+            }
+            if input.key_pressed(VirtualKeyCode::Left) || input.key_pressed(VirtualKeyCode::A) {
+                spheres[0].specular_reflection -= 20.0;
+            }
+            if input.key_pressed(VirtualKeyCode::Right) || input.key_pressed(VirtualKeyCode::D) {
+                spheres[0].specular_reflection += 20.0;
             }
 
             // if input.key_pressed(VirtualKeyCode::Up){
@@ -300,12 +293,12 @@ fn update_light_position(lights: &mut Vec<Light>, direction: &mut Direction) {
 
 }
 
-fn render_to_my_buffer(my_buffer: &mut Vec<Color>, lights: &Vec<Light>, viewport_distance: f64) {
+fn render_to_my_buffer(my_buffer: &mut Vec<Color>, spheres: &mut Vec<Sphere>, lights: &Vec<Light>, viewport_distance: f64) {
     // println!("do_drawing called");
     for x in -CANVAS_WIDTH_I/2..CANVAS_WIDTH_I/2 {
         for y in -CANVAS_HEIGHT_I/2..CANVAS_HEIGHT_I/2 {
             let d = convert_from_canvas_to_viewport(x,y, viewport_distance);
-            let color = trace_ray(CAMERA_POSITION, d, lights, viewport_distance, f64::INFINITY);  //trace ray from (d.x,d.y,d.z)
+            let color = trace_ray(CAMERA_POSITION, d, lights, viewport_distance, f64::INFINITY, spheres);  //trace ray from (d.x,d.y,d.z)
             draw_point(x,y,color,my_buffer);
             //draw color on canvas at points x and y
         }
@@ -321,14 +314,13 @@ fn copy_to_pixels(my_buffer: &Vec<Color>, pixels_buffer: &mut [u8]){
     }
 }
 
-fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec<Light>, point_min: f64, point_max: f64) -> Color{
+fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec<Light>, point_min: f64, point_max: f64, spheres: &mut Vec<Sphere>) -> Color{
     //find out where the ray is going
     //and if it interescts with a sphere,
     //return the points along the ray where it interesects
     //because the straight line is going through the sphere, it interesects it twice
     //front and back
     //we just want front
-    // println!("trace ray called");
     let mut closest_solution: f64 = f64::INFINITY;
     let mut closest_sphere: Option<Sphere> = None;
     let mut closest_color = RenderEngine::color::WHITE;
@@ -336,17 +328,17 @@ fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec
     let mut point: Vector3<f64>;
     let mut sphere_normal: Vector3<f64>;
     let mut intensity: f64;
-    for sphere in SPHERES{
+    for sphere in spheres{
         // intersections = ray_sphere_intersection(&sphere, ray_origin, ray_direction);
         intersections = sphere.ray_intersections(&ray_origin, &ray_direction);
         if(intersections.0 < closest_solution && intersections.0 > point_min && intersections.0 < point_max){
             closest_solution = intersections.0;
-            closest_sphere = Some(sphere);
+            closest_sphere = Some(*sphere);
             closest_color = sphere.color;
         }
         if(intersections.1 < closest_solution && intersections.1 > point_min && intersections.1 < point_max){
             closest_solution = intersections.1;
-            closest_sphere = Some(sphere);
+            closest_sphere = Some(*sphere);
             closest_color = sphere.color;
         }
     }
@@ -358,18 +350,12 @@ fn trace_ray(ray_origin: Vector3<f64>, ray_direction: Vector3<f64>, lights: &Vec
             intensity = intensity_at_point(point, sphere_normal, lights, &sphere, &ray_direction);
             adjust_color(&mut closest_color,intensity);
             return closest_color;
-
         }
     }
-
-
-    // return Vector3::new(1,2,3);
-
 }
 
 
 fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>, lights: &Vec<Light>, sphere: &Sphere, ray_direction: &Vector3<f64>) -> f64 {
-    //
     let mut intensity: f64 = 0.0;
     let mut top_factor: f64;
     let mut light_vector: Vector3<f64>;
@@ -422,26 +408,26 @@ fn get_reflection_for_object(sphere: &Sphere, normal: &Vector3<f64>, camera_poin
 
 
 //this function uses geometry to solve for an equation that checks for line sphere intersection
-fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direction: Vector3<f64>) -> (f64,f64) {
-    let co = ray_origin-sphere.origin; //
-    let a = ray_direction.dot(ray_direction);
-    let b = 2.0 * co.dot(ray_direction);
-    let c = (co.dot(co) - (sphere.r * sphere.r));
-    let discriminant = (b * b - (4.0 * a * c));
-    if(discriminant == 0.0){
-        return (((-b - (discriminant).sqrt()) / 2.0*a), f64::INFINITY);
-    }
-    if discriminant < 0.0 {
-        return (f64::INFINITY, f64::INFINITY);
-    }
-
-    let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
-    let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
-
-    return (t1, t2);
-
-
-}
+// fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direction: Vector3<f64>) -> (f64,f64) {
+//     let co = ray_origin-sphere.origin; //
+//     let a = ray_direction.dot(ray_direction);
+//     let b = 2.0 * co.dot(ray_direction);
+//     let c = (co.dot(co) - (sphere.r * sphere.r));
+//     let discriminant = (b * b - (4.0 * a * c));
+//     if(discriminant == 0.0){
+//         return (((-b - (discriminant).sqrt()) / 2.0*a), f64::INFINITY);
+//     }
+//     if discriminant < 0.0 {
+//         return (f64::INFINITY, f64::INFINITY);
+//     }
+//
+//     let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
+//     let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
+//
+//     return (t1, t2);
+//
+//
+// }
 
 fn adjust_color(color: &mut Color, intensity: f64){
     // :(
@@ -459,11 +445,6 @@ fn adjust_color(color: &mut Color, intensity: f64){
 fn draw_point(x: i32, y: i32, color: Color, my_buffer: &mut Vec<(Color)>) {
     let pos = convert_from_screen_to_raster(x,y);
     let index = (((pos.1 * CANVAS_WIDTH) + pos.0)) as usize;
-    // temporary for debugging
-    // if(index > 1764000){
-        // println!("debug");
-        // return;
-    // }
     my_buffer[index] = color;
 
 }
