@@ -49,8 +49,8 @@ struct Light {
     intensity: f64
 }
 
-const CANVAS_WIDTH: u32 = 500;
-const CANVAS_HEIGHT: u32 = 500;
+const CANVAS_WIDTH: u32 = 1000;
+const CANVAS_HEIGHT: u32 = 1000;
 
 const CANVAS_WIDTH_I: i32 = CANVAS_WIDTH as i32;
 const CANVAS_HEIGHT_I: i32 = CANVAS_HEIGHT as i32;
@@ -65,26 +65,6 @@ const VIEWPORT_HEIGHT: i32 = 1;
 
 const CAMERA_POSITION: Vector3<f64> = Vector3{x:0.0,y:0.0,z:0.0};
 
-// const LIGHTS: [Light;3] = [
-//     Light{kind:LightType::Ambient,pos_or_direction:Vector3{x:0.0,y:0.0,z:0.0},intensity:0.1},
-//     Light{kind:LightType::Point,pos_or_direction:Vector3{x:1.0,y:1.5,z:2.0},intensity:0.9},
-//     Light{kind:LightType::Directional,pos_or_direction:Vector3{x:-1.0,y:0.0,z:4.0},intensity:0.0}
-// ];
-
-const SPHERES: [Sphere;3] = [
-    Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::PURPLE,specular_reflection:4000.0},
-    Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:RenderEngine::color::BLUE,specular_reflection:2.0},
-    Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:RenderEngine::color::GREEN,specular_reflection:-1.0},
-    // Sphere{r:1.5,origin:Vector3{x:1.0,y:-1.0,z:5.0},color:Color{r:1.0,g:1.0,b:0.0,a:1.0},specular_reflection:10.0},
-    // Sphere{r:4.0,origin:Vector3{x:3.0,y:4.0,z:10.0},color:Color{r:1.0,g:0.0,b:1.0,a:1.0},specular_reflection:10.0},
-    // Sphere{r:0.3,origin:Vector3{x:-1.0,y:0.9,z:2.0},color:Color{r:1.0,g:0.6,b:1.0,a:1.0},specular_reflection:15.0},
-    // Sphere{r:0.1,origin:Vector3{x:-0.1,y:0.0,z:1.5},color:Color{r:0.6,g:0.3,b:0.5,a:1.0},specular_reflection:7.0},
-    // Sphere{r:0.05,origin:Vector3{x:-0.1,y:0.0,z:1.3},color:Color{r:0.3,g:0.3,b:1.0,a:1.0},specular_reflection:120.0},
-    // Sphere{r:0.01,origin:Vector3{x:-0.1,y:0.0,z:1.1},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:200.0},
-    // Sphere{r:0.05,origin:Vector3{x:0.0,y:0.0,z:1.5},color:Color{r:0.3,g:0.5,b:1.0,a:1.0},specular_reflection:10.0},
-    // Sphere{r:10.0,origin:Vector3{x:0.0,y:0.0,z:20.0},color:Color{r:0.5,g:0.75,b:1.0,a:1.0},specular_reflection:-1.0},
-    // Sphere{r:100.0,origin:Vector3{x:0.0,y:-101.0,z:0.0},color:Color{r:1.0,g:0.00,b:1.0,a:1.0},specular_reflection:-1.0},
-];
 
 
 
@@ -105,7 +85,7 @@ fn main() -> Result<(), Error>  {
         Light{kind:LightType::Point,pos_or_direction:Vector3{x:0.0,y:10.0,z:5.5},intensity:0.50},
     ];
     let mut spheres: Vec<Sphere> = vec![
-        Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::RED,specular_reflection:4000.0},
+        Sphere{r:1.0,origin:Vector3{x:0.0,y:-1.0,z:7.0},color:RenderEngine::color::RED,specular_reflection:1.0},
         Sphere{r:1.0,origin:Vector3{x:2.0,y:0.0,z:6.0},color:RenderEngine::color::BLUE,specular_reflection:2.0},
         Sphere{r:1.0,origin:Vector3{x:-2.0,y:0.0,z:8.0},color:RenderEngine::color::GREEN,specular_reflection:-1.0},
     ];
@@ -166,10 +146,12 @@ fn main() -> Result<(), Error>  {
                 spheres[0].r -= 0.5;
             }
             if input.key_pressed(VirtualKeyCode::Left) || input.key_pressed(VirtualKeyCode::A) {
-                spheres[0].specular_reflection -= 20.0;
+                spheres[0].specular_reflection -= 1.0;
+                println!("Specular reflection: {}", spheres[0].specular_reflection);
             }
             if input.key_pressed(VirtualKeyCode::Right) || input.key_pressed(VirtualKeyCode::D) {
-                spheres[0].specular_reflection += 20.0;
+                spheres[0].specular_reflection += 1.0;
+                println!("Specular reflection: {}", spheres[0].specular_reflection);
             }
 
             // if input.key_pressed(VirtualKeyCode::Up){
@@ -384,7 +366,7 @@ fn intensity_at_point(point: Vector3<f64>,  normal: Vector3<f64>, lights: &Vec<L
 
 fn get_reflection_for_object(sphere: &Sphere, normal: &Vector3<f64>, camera_point_vector: &Vector3<f64>, light_vector: &Vector3<f64>) -> f64 {
     let mut out: f64 = 0.0;
-    if(sphere.specular_reflection <= -1.0){
+    if(sphere.specular_reflection <= 1.0){
         return out;
     }
 
@@ -400,34 +382,9 @@ fn get_reflection_for_object(sphere: &Sphere, normal: &Vector3<f64>, camera_poin
     if (r_dot_v > 0.0){
         out = (r_dot_v/R.magnitude() * V.magnitude()).powf(s);
     }
-    // out = ((reflection_vector_dot_v) / reflection_vector.magnitude() * camera_point_vector.magnitude()).powf(sphere.specular_reflection);
     return out;
-    todo!();
 }
 
-
-
-//this function uses geometry to solve for an equation that checks for line sphere intersection
-// fn ray_sphere_intersection(sphere: &Sphere, ray_origin: Vector3<f64>, ray_direction: Vector3<f64>) -> (f64,f64) {
-//     let co = ray_origin-sphere.origin; //
-//     let a = ray_direction.dot(ray_direction);
-//     let b = 2.0 * co.dot(ray_direction);
-//     let c = (co.dot(co) - (sphere.r * sphere.r));
-//     let discriminant = (b * b - (4.0 * a * c));
-//     if(discriminant == 0.0){
-//         return (((-b - (discriminant).sqrt()) / 2.0*a), f64::INFINITY);
-//     }
-//     if discriminant < 0.0 {
-//         return (f64::INFINITY, f64::INFINITY);
-//     }
-//
-//     let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
-//     let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
-//
-//     return (t1, t2);
-//
-//
-// }
 
 fn adjust_color(color: &mut Color, intensity: f64){
     // :(
